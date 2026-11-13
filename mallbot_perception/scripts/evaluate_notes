@@ -1,0 +1,4 @@
+#!/usr/bin/env python3
+from mallbot_perception.evaluate import main
+
+main()

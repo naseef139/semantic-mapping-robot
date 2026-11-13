@@ -1,0 +1,32 @@
+auto_keepout:
+  ros__parameters:
+    use_sim_time: true
+    map_topic: /map
+    mask_topic: /keepout_filter_mask
+    sign_topic: /semantic_notes      # sign notes from the semantic mapper (optional)
+    sign_keyword: sign               # marker text/ns containing this word = a shop sign
+    global_frame: map
+    robot_frame: base_link
+    update_rate: 1.0                 # Hz
+
+    # doorway geometry
+    door_min: 0.6                    # m, narrower gaps are LiDAR holes, ignored
+    door_max: 2.5                    # m, widest doorway closed without a sign
+    sign_door_max: 8.0               # m, widest shop front closed when a sign is on it
+    sign_on_line: 0.9                # m, how close the sign must be to the gap line
+    wide_jamb_min: 0.6               # m, wall needed each side of a wide shop front
+    min_segment: 0.5                 # m, shortest wall piece used as a door jamb
+    min_solidity: 0.9                # wall pieces must be solid runs of occupied cells
+    min_support: 1.5                 # m of straight wall on the door's own line
+    min_side_support: 0.6            # m of that wall on EACH side of the gap
+    collinear_deg: 5.0               # deg, the two jambs must be this parallel
+    collinear_off: 0.2               # m, and this well aligned
+    gap_max_occ: 0.1                 # the gap must be open
+
+    # room filling and safety
+    room_depth: 8.0                  # m, how far behind a doorway the room is filled
+    protect_radius: 0.6              # m, never mark around the robot and its start pose
+    visited_radius: 0.3              # m, the driven path is always public
+    forget_after: 10                 # updates a doorway is kept after last seen
+    confirm_hits: 2                  # detections before an unsealed doorway is closed
+    keep_hits: 2                     # detections after which a doorway is kept for good

@@ -1,0 +1,24 @@
+# semantic_mapper settings (MallBot, simulation)
+semantic_mapper:
+  ros__parameters:
+    use_sim_time: true
+    # YOLO-World = open vocabulary: detects exactly the words below.
+    # For plain COCO YOLO use model: yolov8n.pt (classes list is then ignored).
+    model: yolov8s-worldv2.pt
+    classes: ["person", "bench", "potted plant", "trash can", "cabinet", "bookshelf", "table", "counter", "shop sign"]
+    # extra prompt words YOLO-World also looks for; each is stored under the label after "="
+    aliases: ["bookcase=bookshelf", "shelf=bookshelf", "cupboard=cabinet", "locker=cabinet",
+              "desk=table", "dining table=table", "shop counter=counter", "reception desk=counter",
+              "trash bin=trash can", "plant=potted plant", "signboard=shop sign", "store sign=shop sign"]
+    confidence: 0.15          # YOLO-World scores are low; min_sightings filters the one-off false hits
+    device: ""                # "" auto, "cpu", or "0" for the first NVIDIA GPU
+    max_rate_hz: 5.0          # detections per second (GPU); use 2.0 on CPU
+    max_range: 10.0           # shops are seen from the corridor only (keepout): their back walls are 7-9 m away
+    dynamic_classes: ["person"]   # shown in red, NEVER stored as notes
+    gate: 0.8                 # same label within this distance (m) = same object
+    # per-class gates: close-packed objects need a tight gate, long objects (bench 1.7 m) a wide one
+    class_gate_names: ["cabinet", "bookshelf", "bench", "counter"]
+    class_gate_values: [0.35, 0.6, 1.2, 1.2]
+    min_sightings: 3          # a note is confirmed after this many detections
+    save_path: ~/mallbot_notes/notes.json
+    save_every_s: 5.0

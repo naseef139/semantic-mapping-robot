@@ -1,0 +1,4 @@
+#!/usr/bin/env python3
+from mallbot_perception.semantic_mapper import main
+
+main()

@@ -1,0 +1,52 @@
+model,label,x,y,z
+sign_pharmacy,sign:PHARMACY,-9.000,1.904,2.500
+n0_counter,counter,-9.000,5.800,0.500
+n0_cabinet_0,cabinet,-11.300,6.675,0.510
+n0_cabinet_1,cabinet,-10.750,6.675,0.510
+n0_cabinet_2,cabinet,-7.250,6.675,0.510
+n0_cabinet_3,cabinet,-6.700,6.675,0.510
+sign_bookshop,sign:BOOKSHOP,-3.000,1.904,2.500
+n1_counter,counter,-3.000,5.800,0.500
+n1_bookshelf_0,bookshelf,-4.600,6.720,0.600
+n1_bookshelf_1,bookshelf,-3.000,6.720,0.600
+n1_bookshelf_2,bookshelf,-1.400,6.720,0.600
+sign_cafe,sign:CAFE,3.000,1.904,2.500
+n2_counter,counter,3.000,5.800,0.500
+n2_cafe_table_0,dining table,1.700,3.900,0.380
+n2_cafe_table_1,dining table,4.300,3.900,0.380
+sign_shoes,sign:SHOES,9.000,1.904,2.500
+n3_counter,counter,9.000,5.800,0.500
+n3_bookshelf_0,bookshelf,7.400,6.720,0.600
+n3_bookshelf_1,bookshelf,9.000,6.720,0.600
+n3_bookshelf_2,bookshelf,10.600,6.720,0.600
+sign_electronics,sign:ELECTRONICS,-9.000,-1.904,2.500
+s0_counter,counter,-9.000,-5.800,0.500
+s0_cabinet_0,cabinet,-11.300,-6.675,0.510
+s0_cabinet_1,cabinet,-10.750,-6.675,0.510
+s0_cabinet_2,cabinet,-7.250,-6.675,0.510
+s0_cabinet_3,cabinet,-6.700,-6.675,0.510
+s0_display_table,table,-9.000,-4.200,0.500
+sign_bakery,sign:BAKERY,-3.000,-1.904,2.500
+s1_counter,counter,-3.000,-5.800,0.500
+s1_cafe_table_0,dining table,-4.300,-3.900,0.380
+s1_cafe_table_1,dining table,-1.700,-3.900,0.380
+sign_toys,sign:TOYS,3.000,-1.904,2.500
+s2_counter,counter,3.000,-5.800,0.500
+s2_bookshelf_0,bookshelf,1.400,-6.720,0.600
+s2_bookshelf_1,bookshelf,3.000,-6.720,0.600
+s2_bookshelf_2,bookshelf,4.600,-6.720,0.600
+sign_fashion,sign:FASHION,9.000,-1.904,2.500
+s3_counter,counter,9.000,-5.800,0.500
+s3_cabinet_0,cabinet,6.700,-6.675,0.510
+s3_cabinet_1,cabinet,7.250,-6.675,0.510
+s3_cabinet_2,cabinet,10.750,-6.675,0.510
+s3_cabinet_3,cabinet,11.300,-6.675,0.510
+bench_0,bench,-8.000,1.300,0.400
+bench_1,bench,1.000,1.300,0.400
+bench_2,bench,8.500,1.300,0.400
+plant_0,potted plant,-4.500,-1.400,0.600
+plant_1,potted plant,5.000,-1.400,0.600
+trash_can_0,trash can,-1.500,-1.600,0.370
+trash_can_1,trash can,10.500,-1.600,0.370
+person_0,person,-6.000,-0.700,0.900
+person_1,person,3.500,0.600,0.900

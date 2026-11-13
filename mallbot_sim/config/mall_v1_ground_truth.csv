@@ -1,0 +1,24 @@
+model,label,x,y,z
+sign_pharmacy,PHARMACY,-9.000,1.895,2.500
+n0_counter,counter,-9.000,5.800,0.500
+sign_bookshop,BOOKSHOP,-3.000,1.895,2.500
+n1_counter,counter,-3.000,5.800,0.500
+sign_cafe,CAFE,3.000,1.895,2.500
+n2_counter,counter,3.000,5.800,0.500
+sign_shoes,SHOES,9.000,1.895,2.500
+n3_counter,counter,9.000,5.800,0.500
+sign_electronics,ELECTRONICS,-9.000,-1.895,2.500
+s0_counter,counter,-9.000,-5.800,0.500
+sign_bakery,BAKERY,-3.000,-1.895,2.500
+s1_counter,counter,-3.000,-5.800,0.500
+sign_toys,TOYS,3.000,-1.895,2.500
+s2_counter,counter,3.000,-5.800,0.500
+sign_fashion,FASHION,9.000,-1.895,2.500
+s3_counter,counter,9.000,-5.800,0.500
+bench_0,bench,-8.000,1.300,0.225
+bench_1,bench,1.000,1.300,0.225
+bench_2,bench,8.500,1.300,0.225
+plant_0,potted plant,-4.500,-1.400,0.350
+plant_1,potted plant,5.000,-1.400,0.350
+bin_0,bin,-1.500,-1.600,0.400
+bin_1,bin,10.500,-1.600,0.400

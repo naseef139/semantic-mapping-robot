@@ -1,0 +1,19 @@
+# explore_lite (m-explore-ros2) - frontier exploration for MallBot.
+# Sends Nav2 goals to the edge between known and unknown space until the whole mall is mapped.
+explore_node:
+  ros__parameters:
+    use_sim_time: true
+    robot_base_frame: base_link
+    return_to_init: true          # drive back to the start when the map is complete
+    # Nav2 GLOBAL COSTMAP (not the raw SLAM map): frontier goals are then only placed next to
+    # cells that are free *including the safety margin*, so the robot can actually stand there.
+    costmap_topic: /global_costmap/costmap
+    costmap_updates_topic: /global_costmap/costmap_updates
+    visualize: true               # frontier markers in RViz (topic: explore/frontiers)
+    planner_frequency: 0.25       # pick a new frontier every 4 s
+    progress_timeout: 20.0        # give up on a frontier after 20 s without progress (blacklists it)
+    potential_scale: 3.0
+    orientation_scale: 0.0
+    gain_scale: 1.0
+    transform_tolerance: 0.3
+    min_frontier_size: 0.5        # ignore tiny frontiers (m)

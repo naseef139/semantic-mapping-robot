@@ -1,0 +1,10 @@
+# All-grey (unknown) mask: has no effect. Used only so the existing keepout
+# map_server in nav.launch.py starts without a preset mask; auto_keepout then
+# publishes the real mask on the same topic.
+image: keepout_blank.pgm
+mode: trinary
+resolution: 0.05
+origin: [0.0, 0.0, 0.0]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.196
