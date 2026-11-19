@@ -60,6 +60,19 @@ def make_params(context):
             rp['inflation_layer']['inflation_radius'] = INFLATION[cm][0]
             rp['inflation_layer']['cost_scaling_factor'] = INFLATION[cm][1]
 
+    # Depth camera as a 2nd obstacle source (P1): café tabletops (0.74-0.78 m) are above the lidar
+    # plane (0.23 m). Cloud comes from depth_image_proc point_cloud_xyz_node on /camera/points.
+    # min height 0.10: floor noise reaches 0.05 m. Voxel grid: max 16 z cells, so 16 x 0.0625 = 1.0 m
+    # (stock 16 x 0.05 = 0.8 m would cut objects above 0.8 m).
+    DEPTH = {'topic': '/camera/points', 'data_type': 'PointCloud2', 'marking': True, 'clearing': True,
+             'min_obstacle_height': 0.10, 'max_obstacle_height': 1.0,
+             'obstacle_max_range': 3.0, 'raytrace_max_range': 3.5}
+    for cm, layer in (('local_costmap', 'voxel_layer'), ('global_costmap', 'obstacle_layer')):
+        lp = p[cm][cm]['ros__parameters'][layer]
+        lp['observation_sources'] = 'scan depth'
+        lp['depth'] = dict(DEPTH)
+    set_if(p, ['local_costmap', 'local_costmap', 'ros__parameters', 'voxel_layer', 'z_resolution'], 0.0625)
+
     # Global planner: Smac STATE LATTICE with the differential-drive motion set.
     # It collision-checks the REAL footprint at every pose of the path, so it never plans through
     # gaps the robot can't fit (Smac 2D / NavFn treat the robot as a circle of the *inscribed*

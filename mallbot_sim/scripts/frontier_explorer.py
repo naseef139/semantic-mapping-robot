@@ -25,8 +25,8 @@ import time
 import numpy as np
 import rclpy
 from action_msgs.msg import GoalStatus
-from geometry_msgs.msg import PoseStamped
-from nav2_msgs.action import ComputePathToPose, NavigateToPose
+from geometry_msgs.msg import PoseStamped, Twist
+from nav2_msgs.action import ComputePathToPose, NavigateToPose, Spin
 from nav_msgs.msg import OccupancyGrid
 from rclpy.action import ActionClient
 from rclpy.duration import Duration
@@ -61,14 +61,24 @@ class FrontierExplorer(Node):
         self.map_frame = P("map_frame", "map").value
         self.base_frame = P("robot_base_frame", "base_link").value
         rate = float(P("rate_hz", 1.0).value)
-
+        P("look_around", False)                                        # read at run time (ros2 param set)
+        self.stuck_time = float(P("stuck_time_s", 15.0).value)        # s without getting closer -> give up goal
+        self.near_enough = float(P("near_enough", 0.35).value)        # m: close enough counts as reached
+        self.near_hit = False
+        self.stuck_dist = float(P("stuck_dist", 0.25).value)          # m that counts as progress
+        self.plan_timeout = float(P("plan_timeout_s", 10.0).value)    # s to wait for the planner
+        self.clear = float(P("goal_clearance", 0.3).value)            # m of clear space around a goal
+        self.safe_cost = int(P("safe_cost", 60).value)                # costmap value that counts as "not clear"      
         qos = QoSProfile(depth=1, reliability=ReliabilityPolicy.RELIABLE,
                          durability=DurabilityPolicy.VOLATILE, history=HistoryPolicy.KEEP_LAST)
         self.create_subscription(OccupancyGrid, P("costmap_topic", "/global_costmap/costmap").value,
                                  self.on_costmap, qos)
         self.pub_mk = self.create_publisher(MarkerArray, "/explore/frontiers", 5)
+        self.pub_cmd = self.create_publisher(Twist, "/cmd_vel", 10)
+        self.esc_dir, self.esc_until = 1.0, 0.0        
         self.nav = ActionClient(self, NavigateToPose, "navigate_to_pose")
         self.plan = ActionClient(self, ComputePathToPose, "compute_path_to_pose")
+        self.spin = ActionClient(self, Spin, "spin")        
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self, spin_thread=True)
 
@@ -86,6 +96,9 @@ class FrontierExplorer(Node):
         self.candidates = []
         self.goal_is_frontier = False   # True if the current goal is the frontier itself (not a short step)
         self.visits = {}             # frontier reached but still there -> count; 2 = blacklist
+        self.prog_xy, self.prog_t = None, 0.0   # last position that counted as progress
+        self.plan_sent_at = self.look_started = 0.0
+        self.n_looks = 0        
         self.create_timer(1.0 / rate, self.tick)
         self.get_logger().info(f"frontier explorer: max_step {self.max_step} m, goal timeout {self.goal_timeout} s, "
                                f"one goal at a time (no pre-emption)")
@@ -117,13 +130,48 @@ class FrontierExplorer(Node):
 
     # ------------------------------------------------------------------ main loop
     def tick(self):
-        if self.state in ("PLANNING", "DONE"):
+        now = time.monotonic()
+        if self.state == "DONE":
+            return
+        if self.state == "ESCAPING":
+            pose = self.robot_xy()
+            t = Twist()
+            if now < self.esc_until and pose and self.trapped(pose):
+                t.linear.x = 0.1 * self.esc_dir             # slowly, straight, no turning
+                self.pub_cmd.publish(t)
+            else:
+                self.pub_cmd.publish(t)                     # stop
+                self.state = "IDLE"
+            return            
+        if self.state == "LOOKING":
+            if now - self.look_started > 30.0:
+                self.state = "IDLE"
+            return
+        if self.state == "PLANNING":
+            if now - self.plan_sent_at > self.plan_timeout:
+                self.fail_target(f"planner gave no answer in {self.plan_timeout:.0f} s")
             return
         if self.state in ("DRIVING", "RETURNING"):
-            if self.state == "DRIVING" and time.monotonic() - self.goal_sent_at > self.goal_timeout and self.goal_handle:
-                self.get_logger().warn(f"goal timed out after {self.goal_timeout:.0f} s -> cancel + blacklist target")
-                self.goal_handle.cancel_goal_async()
-                self.goal_handle = None          # result callback will still arrive (cancelled)
+            if self.state == "DRIVING" and self.goal_handle:
+                pose = self.robot_xy()
+                d_goal = math.hypot(pose[0] - self.goal[0], pose[1] - self.goal[1]) if pose else None
+                if d_goal is not None and (self.prog_xy is None or d_goal < self.prog_xy - self.stuck_dist):
+                    self.prog_xy, self.prog_t = d_goal, now            # best distance to goal so far: progress
+                if d_goal is not None and d_goal < self.near_enough:
+                    self.get_logger().info(f"goal #{self.n_goals} close enough ({d_goal:.2f} m) -> next")
+                    self.near_hit = True
+                    self.goal_handle.cancel_goal_async()
+                    self.goal_handle = None
+                    return
+                why = None
+                if now - self.goal_sent_at > self.goal_timeout:
+                    why = f"goal timed out after {self.goal_timeout:.0f} s"
+                elif now - self.prog_t > self.stuck_time:
+                    why = f"no progress for {self.stuck_time:.0f} s (stuck)"
+                if why:
+                    self.get_logger().warn(f"{why} -> cancel + blacklist target")
+                    self.goal_handle.cancel_goal_async()
+                    self.goal_handle = None      # result callback will still arrive (cancelled)
             return
         pose = self.robot_xy()
         if pose is None or self.grid is None:
@@ -134,7 +182,7 @@ class FrontierExplorer(Node):
             self.start_pose = pose
         rx, ry, _ = pose
         fr, reach = find_frontiers(self.grid, self.to_rc(rx, ry), self.info.resolution,
-                                   self.free_thresh, self.min_size)
+                                   self.free_thresh, self.min_size, self.clear, self.safe_cost)
         if self.state == "WAIT":
             if reach.sum() < 50:
                 self.get_logger().info("waiting for the costmap around the robot to fill ...", throttle_duration_sec=5.0)
@@ -187,6 +235,7 @@ class FrontierExplorer(Node):
         g.goal = self.make_pose(gx, gy, yaw)
         g.use_start = False
         self.state = "PLANNING"
+        self.plan_sent_at = time.monotonic()        
         fut = self.plan.send_goal_async(g)
         fut.add_done_callback(self.on_plan_accepted)
 
@@ -199,6 +248,8 @@ class FrontierExplorer(Node):
 
     def on_plan_result(self, fut):
         res = fut.result()
+        if self.state != "PLANNING":
+            return                               # answer came too late, target already given up        
         poses = res.result.path.poses if res.status == GoalStatus.STATUS_SUCCEEDED else []
         if len(poses) < 2:
             self.fail_target("no path to the frontier")
@@ -237,6 +288,7 @@ class FrontierExplorer(Node):
         self.n_goals += 0 if returning else 1
         self.state = "RETURNING" if returning else "DRIVING"
         self.goal_sent_at = time.monotonic()
+        self.prog_xy, self.prog_t = None, self.goal_sent_at        
         r = self.robot_xy()
         d = math.hypot(x - r[0], y - r[1]) if r else float("nan")
         self.get_logger().info(("returning to start" if returning else f"goal #{self.n_goals}") +
@@ -257,6 +309,8 @@ class FrontierExplorer(Node):
 
     def on_goal_result(self, fut):
         status = fut.result().status
+        if self.near_hit:                        # we cancelled it ourselves because it was close enough
+            status, self.near_hit = GoalStatus.STATUS_SUCCEEDED, False        
         self.goal_handle = None
         txt = STATUS.get(status, str(status))
         if self.state == "RETURNING":
@@ -275,15 +329,84 @@ class FrontierExplorer(Node):
                 if self.visits[key] >= 2:
                     self.blacklist.append(self.target)
                     self.get_logger().info("frontier still unknown after 2 visits -> blacklisted")
+            if self.get_parameter("look_around").value:
+                self.look_around()
         else:
             self.fail_target(f"goal #{self.n_goals} {txt}")
 
+    def cost_at(self, x, y):
+        r, c = self.to_rc(x, y)
+        h, w = self.grid.shape
+        return int(self.grid[r, c]) if 0 <= r < h and 0 <= c < w else 100
+
+    # Nav2 footprint in base_link (= nav.launch.py FOOTPRINT): the tail reaches 0.28 m behind the
+    # front axle, so the centre can be free while the tail sits on a wall (Smac then refuses to plan:
+    # "Starting point in lethal space").
+    FP_X = (-0.28, 0.10)
+    FP_Y = (-0.17, 0.17)
+
+    def footprint_cost(self, x, y, th):
+        """Highest costmap value under the robot footprint at pose (x, y, th)."""
+        c, s = math.cos(th), math.sin(th)
+        step = self.info.resolution
+        worst = 0
+        for fx in np.arange(self.FP_X[0], self.FP_X[1] + 1e-6, step):
+            for fy in np.arange(self.FP_Y[0], self.FP_Y[1] + 1e-6, step):
+                worst = max(worst, self.cost_at(x + c * fx - s * fy, y + s * fx + c * fy))
+        return worst
+
+    def trapped(self, pose):
+        """Centre in the no-go band, or any part of the footprint on an inscribed/lethal cell."""
+        return self.cost_at(pose[0], pose[1]) >= 90 or self.footprint_cost(*pose) >= 99
+
+    def start_escape(self):
+        """If the robot stands in the no-go band (e.g. squeezed behind a bench) or its footprint
+        touches a wall (tail swung into a door jamb), drive straight out (no turning = no tail swing)."""
+        pose = self.robot_xy()
+        if pose is None or self.grid is None or not self.trapped(pose):
+            return
+        x, y, th = pose
+        def worst(sign):     # footprint cost after moving 0.1-0.3 m straight forward (+1) / back (-1)
+            return min(self.footprint_cost(x + sign * d * math.cos(th), y + sign * d * math.sin(th), th)
+                       for d in (0.1, 0.2, 0.3))
+        fwd, back = worst(1), worst(-1)
+        if min(fwd, back) >= 100:
+            self.get_logger().warn("robot footprint on a lethal cell, but no free straight move -> no escape")
+            return
+        self.esc_dir = 1.0 if fwd <= back else -1.0
+        self.esc_until = time.monotonic() + 6.0
+        self.state = "ESCAPING"
+        self.get_logger().warn("robot is inside the no-go band -> escaping " +
+                               ("forward" if self.esc_dir > 0 else "backward"))
+
+    def look_around(self):
+        """Yamauchi's 360-degree sweep, for the camera: one full turn on the spot (Nav2 Spin)."""
+        if not self.spin.wait_for_server(timeout_sec=0.5):
+            self.get_logger().warn("spin action not available, skipping look-around")
+            return
+        g = Spin.Goal()
+        g.target_yaw = 2 * math.pi
+        g.time_allowance = Duration(seconds=20).to_msg()
+        self.state = "LOOKING"
+        self.look_started = time.monotonic()
+        self.n_looks += 1
+        self.get_logger().info(f"look-around #{self.n_looks}")
+        self.spin.send_goal_async(g).add_done_callback(self.on_spin_accepted)
+
+    def on_spin_accepted(self, fut):
+        gh = fut.result()
+        if not gh.accepted:
+            self.state = "IDLE"
+            return
+        gh.get_result_async().add_done_callback(lambda f: setattr(self, "state", "IDLE"))
+        
     def fail_target(self, why):
         self.n_fail += 1
         if self.target:
             self.blacklist.append(self.target)
         self.get_logger().warn(f"{why} -> target blacklisted ({len(self.blacklist)} so far)")
         self.state = "IDLE"
+        self.start_escape()
 
     # ------------------------------------------------------------------ RViz
     def publish_markers(self):

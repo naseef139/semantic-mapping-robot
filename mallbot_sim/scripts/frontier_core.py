@@ -12,7 +12,22 @@ from collections import deque
 import numpy as np
 
 
-def reachable_mask(grid, start, free_thresh=50, search_radius_cells=20):
+def reachable_mask(grid, start, free_thresh=50, search_radius_cells=20, min_cells=200, relaxed_thresh=99):
+    """BFS over free cells from the robot cell (see _bfs).
+
+    If that reaches fewer than min_cells (the robot stands in a small pocket of low cost, cut off
+    by the inflation band, e.g. in the back corner of a shop), search again through every cell
+    below relaxed_thresh (inflation is drivable; 99 inscribed / 100 lethal are not). Without this
+    the explorer saw no frontiers for 15 s and declared the run complete (run18)."""
+    seen = _bfs(grid, start, free_thresh, search_radius_cells)
+    if seen.sum() < min_cells and relaxed_thresh > free_thresh:
+        wide = _bfs(grid, start, relaxed_thresh, search_radius_cells)
+        if wide.sum() > seen.sum():
+            return wide
+    return seen
+
+
+def _bfs(grid, start, free_thresh, search_radius_cells):
     """BFS over free cells from the robot cell. If the robot cell itself is not free (inflated
     area near a wall), start from the nearest free cell within search_radius_cells."""
     h, w = grid.shape
@@ -77,11 +92,21 @@ def clusters(fmask):
     return out
 
 
-def find_frontiers(grid, robot_rc, resolution, free_thresh=50, min_size=0.5):
+def find_frontiers(grid, robot_rc, resolution, free_thresh=50, min_size=0.5, clear_m=0.0, safe_cost=30):
     """Returns a list of dicts {goal_rc, centroid_rc, size_m, n_cells}, unsorted."""
     reach = reachable_mask(grid, robot_rc, free_thresh)
     if reach.sum() < 10:
         return [], reach
+    # goal cells need clear space around them: no cost >= safe_cost within clear_m
+    # (unknown cells count as clear, because a frontier goal always sits next to unknown space)
+    safe = grid < safe_cost
+    for _ in range(int(round(clear_m / resolution))):
+        s = safe.copy()
+        s[1:, :] &= safe[:-1, :]
+        s[:-1, :] &= safe[1:, :]
+        s[:, 1:] &= safe[:, :-1]
+        s[:, :-1] &= safe[:, 1:]
+        safe = s
     fr = []
     for comp in clusters(frontier_mask(grid, reach)):
         size_m = len(comp) * resolution
@@ -95,7 +120,7 @@ def find_frontiers(grid, robot_rc, resolution, free_thresh=50, min_size=0.5):
         for r, c in comp:
             for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
                 rr, c2 = r + dr, c + dc
-                if 0 <= rr < h and 0 <= c2 < w and reach[rr, c2]:
+                if 0 <= rr < h and 0 <= c2 < w and reach[rr, c2] and safe[rr, c2]:
                     d = (rr - cr) ** 2 + (c2 - cc) ** 2
                     if bd is None or d < bd:
                         best, bd = (rr, c2), d
