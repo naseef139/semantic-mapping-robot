@@ -2,3 +2,8 @@ m-explore-ros2/
 __pycache__/
 *.pyc
 *.pt
+
+# local backups of hand-edited files
+*.bak
+*.bak[0-9]*
+*.bak_*

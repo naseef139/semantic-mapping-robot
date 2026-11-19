@@ -45,6 +45,7 @@ def generate_launch_description():
         DeclareLaunchArgument('x', default_value='-10.0'),
         DeclareLaunchArgument('y', default_value='0.0'),
         DeclareLaunchArgument('yaw', default_value='0.0'),
+        DeclareLaunchArgument('gz_extra', default_value='', description="'-s' = no Gazebo window"),        
         DeclareLaunchArgument('cmd_vel_timeout', default_value='0.7'),
     ]
 
@@ -55,8 +56,7 @@ def generate_launch_description():
     # 1. Gazebo (-r = start running immediately)
     gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(ros_gz_sim, 'launch', 'gz_sim.launch.py')),
-        launch_arguments={'gz_args': ['-r ', world]}.items())
-
+        launch_arguments={'gz_args': ['-r ', LaunchConfiguration('gz_extra'), ' ', world]}.items())
     # 2. Robot state publisher
     rsp = Node(
         package='robot_state_publisher', executable='robot_state_publisher',

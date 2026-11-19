@@ -5,12 +5,14 @@ Panels:
     Property Tree Widget:
       Expanded: ~
       Splitter Ratio: 0.5
-    Tree Height: 640
+    Tree Height: 123
   - Class: rviz_common/Views
     Expanded:
       - /Current View1
     Name: Views
     Splitter Ratio: 0.5
+  - Class: nav2_rviz_plugins/Navigation 2
+    Name: Navigation 2
 Visualization Manager:
   Class: ""
   Displays:
@@ -140,6 +142,7 @@ Visualization Manager:
       Enabled: true
       Name: Exploration frontiers
       Namespaces:
+        blacklisted: true
         frontiers: true
         goal: true
         target: true
@@ -335,18 +338,43 @@ Visualization Manager:
         Reliability Policy: Best Effort
         Value: /camera/depth_image
       Value: false
-    - Class: rviz_default_plugins/MarkerArray
+    - Class: rviz_default_plugins/Image
       Enabled: true
-      Name: MarkerArray
-      Namespaces:
-        doorway_labels: true
-        virtual_walls: true
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: Image
+      Normalize Range: true
       Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /auto_keepout/doorways
+        Value: /semantic_mapper/annotated
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: sem_marker
+      Namespaces:
+        detections: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /semantic_mapper/markers
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: objects
+      Namespaces:
+        object_map: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /semantic_mapper/object_map
       Value: true
   Enabled: true
   Global Options:
@@ -395,8 +423,8 @@ Visualization Manager:
       Scale: 25.01270294189453
       Target Frame: <Fixed Frame>
       Value: TopDownOrtho (rviz_default_plugins)
-      X: 0
-      Y: 0
+      X: 9.877767562866211
+      Y: 0.050210438668727875
     Saved: ~
 Window Geometry:
   Camera Depth:
@@ -410,9 +438,13 @@ Window Geometry:
   Height: 1066
   Hide Left Dock: false
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd000000010000000000000156000003d0fc0200000005fb0000001800430061006d006500720061002000440065007000740068000000003d000001780000002800fffffffb0000001400430061006d006500720061002000520047004200000001bb0000004a0000002800fffffffb000000140044006500740065006300740069006f006e0073000000020b0000005a0000002800fffffffb000000100044006900730070006c006100790073010000003d00000303000000c900fffffffb0000000a005600690065007700730100000346000000c7000000a400ffffff00000264000003d000000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  Image:
+    collapsed: false
+  Navigation 2:
+    collapsed: false
+  QMainWindow State: 000000ff00000000fd000000020000000000000156000002a4fc0200000006fb0000001800430061006d006500720061002000440065007000740068000000003d000001780000002800fffffffb0000001400430061006d006500720061002000520047004200000001bb0000004a0000002800fffffffb000000140044006500740065006300740069006f006e0073000000020b0000005a0000002800fffffffb000000100044006900730070006c006100790073010000003d000000fe000000c900fffffffb0000000a005600690065007700730100000141000000a9000000a400fffffffb0000000a0049006d00610067006501000001f0000000f10000002800ffffff00000003000003bc00000126fc0100000001fb00000018004e0061007600690067006100740069006f006e002000320100000000000003bc0000011600ffffff00000260000002a400000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Views:
     collapsed: false
-  Width: 960
-  X: 960
+  Width: 956
+  X: 964
   Y: 27
