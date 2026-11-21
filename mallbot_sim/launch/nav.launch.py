@@ -49,7 +49,8 @@ def make_params(context):
 
     # Inflation: radius > circumscribed radius (0.33 m: rear corner swing about the front axle),
     # low scaling factor = cost fades slowly -> paths keep away from walls instead of hugging them.
-    INFLATION = {'global_costmap': (0.75, 2.5), 'local_costmap': (0.55, 3.0)}
+    # global scaling 2.5 -> 1.5 (P2): run19 had only 77% of plans with >= 0.35 m clearance
+    INFLATION = {'global_costmap': (0.75, 1.5), 'local_costmap': (0.55, 3.0)}
     for cm in ('local_costmap', 'global_costmap'):
         rp = p[cm][cm]['ros__parameters']
         rp.pop('robot_radius', None)
@@ -97,7 +98,7 @@ def make_params(context):
             'reverse_penalty': 2.0,
             'change_penalty': 0.05,
             'non_straight_penalty': 1.05,
-            'cost_penalty': 2.5,               # stay away from walls / inflated areas
+            'cost_penalty': 2.5,               # stay away from walls / inflated areas (3.5 tried in run21: worse)
             'rotation_penalty': 5.0,           # rotate in place only when really needed
             'retrospective_penalty': 0.015,
             'lookup_table_size': 20.0,
