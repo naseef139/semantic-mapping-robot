@@ -69,6 +69,7 @@ class FrontierExplorer(Node):
         self.trap_time = float(P("trap_time_s", 3.0).value)
         self.trapped_since = None
         self.trap_cancel = False
+        self.kept = {}     # target key -> times a failure was blamed on the trapped robot, not the target
         self.stuck_dist = float(P("stuck_dist", 0.25).value)          # m that counts as progress
         self.plan_timeout = float(P("plan_timeout_s", 10.0).value)    # s to wait for the planner
         self.clear = float(P("goal_clearance", 0.3).value)            # m of clear space around a goal
@@ -427,6 +428,19 @@ class FrontierExplorer(Node):
         gh.get_result_async().add_done_callback(lambda f: setattr(self, "state", "IDLE"))
         
     def fail_target(self, why):
+        # failure while the robot itself is trapped (e.g. "Starting point in lethal space" right after
+        # a trap): the pose is the problem, not the target -> escape and keep it, at most twice per target
+        # (run26: the Fashion doorway frontier was blacklisted this way -> exploration ended at x 14.3)
+        pose = self.robot_xy()
+        if self.target and pose and self.grid is not None and self.trapped(pose):
+            key = (round(self.target[0] / 0.5), round(self.target[1] / 0.5))
+            if self.kept.get(key, 0) < 2:
+                self.kept[key] = self.kept.get(key, 0) + 1
+                self.get_logger().warn(f"{why}, but the robot itself is trapped -> escape, target kept "
+                                       f"({self.kept[key]}/2)")
+                self.state = "IDLE"
+                self.start_escape()
+                return
         self.n_fail += 1
         if self.target:
             self.blacklist.append(self.target)
