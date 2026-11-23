@@ -20,7 +20,6 @@ arrow = current (short) goal, red = blacklisted.
 import math
 import os
 import sys
-import time
 
 import numpy as np
 import rclpy
@@ -128,9 +127,14 @@ class FrontierExplorer(Node):
     def blacklisted(self, x, y):
         return any(math.hypot(x - bx, y - by) < self.blacklist_r for bx, by in self.blacklist)
 
+    def now(self):
+        """Seconds on the node clock = SIM time (use_sim_time). All timeouts use it, so the explorer
+        behaves the same at any real-time factor (wall time made a 15 s wait ~4 sim-s at RTF 0.28, run24)."""
+        return self.get_clock().now().nanoseconds * 1e-9
+
     # ------------------------------------------------------------------ main loop
     def tick(self):
-        now = time.monotonic()
+        now = self.now()
         if self.state == "DONE":
             return
         if self.state == "ESCAPING":
@@ -198,7 +202,7 @@ class FrontierExplorer(Node):
         cands.sort(key=lambda c: c[0])                     # NEAREST first
         self.candidates = [(c[1], c[2]) for c in cands]
         if not cands:
-            now = time.monotonic()
+            now = self.now()
             self.no_frontier_since = self.no_frontier_since or now
             left = self.done_after - (now - self.no_frontier_since)
             if left > 0:
@@ -235,7 +239,7 @@ class FrontierExplorer(Node):
         g.goal = self.make_pose(gx, gy, yaw)
         g.use_start = False
         self.state = "PLANNING"
-        self.plan_sent_at = time.monotonic()        
+        self.plan_sent_at = self.now()        
         fut = self.plan.send_goal_async(g)
         fut.add_done_callback(self.on_plan_accepted)
 
@@ -287,7 +291,7 @@ class FrontierExplorer(Node):
         self.goal = (x, y, yaw)
         self.n_goals += 0 if returning else 1
         self.state = "RETURNING" if returning else "DRIVING"
-        self.goal_sent_at = time.monotonic()
+        self.goal_sent_at = self.now()
         self.prog_xy, self.prog_t = None, self.goal_sent_at        
         r = self.robot_xy()
         d = math.hypot(x - r[0], y - r[1]) if r else float("nan")
@@ -374,7 +378,7 @@ class FrontierExplorer(Node):
             self.get_logger().warn("robot footprint on a lethal cell, but no free straight move -> no escape")
             return
         self.esc_dir = 1.0 if fwd <= back else -1.0
-        self.esc_until = time.monotonic() + 6.0
+        self.esc_until = self.now() + 6.0
         self.state = "ESCAPING"
         self.get_logger().warn("robot is inside the no-go band -> escaping " +
                                ("forward" if self.esc_dir > 0 else "backward"))
@@ -388,7 +392,7 @@ class FrontierExplorer(Node):
         g.target_yaw = 2 * math.pi
         g.time_allowance = Duration(seconds=20).to_msg()
         self.state = "LOOKING"
-        self.look_started = time.monotonic()
+        self.look_started = self.now()
         self.n_looks += 1
         self.get_logger().info(f"look-around #{self.n_looks}")
         self.spin.send_goal_async(g).add_done_callback(self.on_spin_accepted)
