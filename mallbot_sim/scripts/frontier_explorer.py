@@ -64,6 +64,11 @@ class FrontierExplorer(Node):
         self.stuck_time = float(P("stuck_time_s", 15.0).value)        # s without getting closer -> give up goal
         self.near_enough = float(P("near_enough", 0.35).value)        # m: close enough counts as reached
         self.near_hit = False
+        # footprint on a lethal cell this long while driving -> cancel + escape, keep the target
+        # (run25: tail on a door jamb, Nav2 recoveries failed for 26 s, good target blacklisted)
+        self.trap_time = float(P("trap_time_s", 3.0).value)
+        self.trapped_since = None
+        self.trap_cancel = False
         self.stuck_dist = float(P("stuck_dist", 0.25).value)          # m that counts as progress
         self.plan_timeout = float(P("plan_timeout_s", 10.0).value)    # s to wait for the planner
         self.clear = float(P("goal_clearance", 0.3).value)            # m of clear space around a goal
@@ -167,6 +172,17 @@ class FrontierExplorer(Node):
                     self.goal_handle.cancel_goal_async()
                     self.goal_handle = None
                     return
+                if pose and self.trapped(pose):
+                    self.trapped_since = self.trapped_since or now
+                    if now - self.trapped_since >= self.trap_time:
+                        self.get_logger().warn(f"footprint in lethal space for {self.trap_time:.0f} s "
+                                               "-> cancel + escape (target kept)")
+                        self.trap_cancel = True
+                        self.goal_handle.cancel_goal_async()
+                        self.goal_handle = None
+                        return
+                else:
+                    self.trapped_since = None
                 why = None
                 if now - self.goal_sent_at > self.goal_timeout:
                     why = f"goal timed out after {self.goal_timeout:.0f} s"
@@ -292,7 +308,8 @@ class FrontierExplorer(Node):
         self.n_goals += 0 if returning else 1
         self.state = "RETURNING" if returning else "DRIVING"
         self.goal_sent_at = self.now()
-        self.prog_xy, self.prog_t = None, self.goal_sent_at        
+        self.prog_xy, self.prog_t = None, self.goal_sent_at
+        self.trapped_since = None
         r = self.robot_xy()
         d = math.hypot(x - r[0], y - r[1]) if r else float("nan")
         self.get_logger().info(("returning to start" if returning else f"goal #{self.n_goals}") +
@@ -317,6 +334,11 @@ class FrontierExplorer(Node):
             status, self.near_hit = GoalStatus.STATUS_SUCCEEDED, False        
         self.goal_handle = None
         txt = STATUS.get(status, str(status))
+        if self.trap_cancel:                     # we cancelled it ourselves: robot trapped, target is fine
+            self.trap_cancel = False
+            self.state = "IDLE"
+            self.start_escape()
+            return
         if self.state == "RETURNING":
             self.get_logger().info(f"back at the start ({txt}). Done.")
             self.state = "DONE"
